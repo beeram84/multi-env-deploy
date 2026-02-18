@@ -2,60 +2,46 @@ name: Deploy to Environment
 
 on:
   push:
-    branches:
-      - dev
-      - staging
-      - main
+    branches: [dev, staging, main]
 
 jobs:
-  deploy:
+
+  deploy-dev:
+    if: github.ref_name == 'dev'
     runs-on: ubuntu-latest
-    environment: ${{ github.ref_name == 'dev' && 'development' || github.ref_name == 'main' && 'production' || github.ref_name }}
+    environment: development
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Display deployment info
+      - uses: actions/checkout@v4
+      - name: Show vars
         run: |
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Deploying to: ${{ vars.SITE_TITLE }}"
-          echo "Server: ${{ vars.DEPLOY_HOST }}"
-          echo "Path: ${{ vars.DEPLOY_PATH }}"
+          echo "HOST=${{ vars.DEPLOY_HOST }}"
+          echo "USER=${{ vars.DEPLOY_USER }}"
+          echo "PATH=${{ vars.DEPLOY_PATH }}"
 
-      - name: Replace placeholders with environment values
+  deploy-staging:
+    if: github.ref_name == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show vars
         run: |
-          sed -i "s|__SITE_TITLE__|${{ vars.SITE_TITLE }}|g" index.html
-          sed -i "s|__SITE_COLOR__|${{ vars.SITE_COLOR }}|g" style.css
-          echo "✅ Placeholders replaced"
-          head -5 index.html
-      - name: Deploy to EC2 via SSH
-        shell: bash
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          echo "HOST=${{ vars.DEPLOY_HOST }}"
+          echo "USER=${{ vars.DEPLOY_USER }}"
+          echo "PATH=${{ vars.DEPLOY_PATH }}"
+
+  deploy-prod:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show vars
         run: |
-          set -euxo pipefail
-          mkdir -p ~/.ssh
-
-          printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "DEPLOY_HOST=$DEPLOY_HOST"
-          echo "DEPLOY_USER=$DEPLOY_USER"
-          echo "DEPLOY_PATH=$DEPLOY_PATH"
-
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-
-          echo "Testing SSH connection..."
-          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" "echo SSH_OK && whoami && pwd"
-
-          echo "Deploying files..."
-          scp -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            index.html style.css app.js \
-            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
-
-          echo "✅ Files deployed"
+          echo "HOST=${{ vars.DEPLOY_HOST }}"
+          echo "USER=${{ vars.DEPLOY_USER }}"
+          echo "PATH=${{ vars.DEPLOY_PATH }}"
 
