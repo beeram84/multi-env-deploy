@@ -10,8 +10,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
-    # Map branch → environment
     environment: ${{ github.ref_name == 'main' && 'production' || github.ref_name }}
 
     steps:
@@ -29,7 +27,6 @@ jobs:
         run: |
           sed -i "s|__SITE_TITLE__|${{ vars.SITE_TITLE }}|g" index.html
           sed -i "s|__SITE_COLOR__|${{ vars.SITE_COLOR }}|g" style.css
-
           echo "✅ Placeholders replaced"
           head -5 index.html
 
@@ -41,22 +38,16 @@ jobs:
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
         run: |
           set -euo pipefail
-
           mkdir -p ~/.ssh
 
-          # Write SSH private key safely
-          cat > ~/.ssh/deploy_key <<'EOF'
-          ${{ secrets.SSH_PRIVATE_KEY }}
-          EOF
+cat > ~/.ssh/deploy_key <<'EOF'
+${{ secrets.SSH_PRIVATE_KEY }}
+EOF
 
-          # Fix Windows line endings if any
           sed -i 's/\r$//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-
-          # Add server to known hosts
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          # Copy files
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             index.html style.css app.js \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
@@ -73,12 +64,12 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.ssh
 
-          cat > ~/.ssh/deploy_key <<'EOF'
-          ${{ secrets.SSH_PRIVATE_KEY }}
-          EOF
+cat > ~/.ssh/deploy_key <<'EOF'
+${{ secrets.SSH_PRIVATE_KEY }}
+EOF
+
           sed -i 's/\r$//' ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
