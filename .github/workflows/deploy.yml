@@ -29,7 +29,6 @@ jobs:
           sed -i "s|__SITE_COLOR__|${{ vars.SITE_COLOR }}|g" style.css
           echo "✅ Placeholders replaced"
           head -5 index.html
-
       - name: Deploy to EC2 via SSH
         shell: bash
         env:
@@ -41,36 +40,19 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.ssh
 
-          # Write key safely (preserves newlines)
           printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          # Host key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-          # Deploy files
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+          echo "Testing SSH connection..."
+          ssh -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "echo SSH_OK && whoami && pwd"
+
+          echo "Deploying files..."
+          scp -vvv -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             index.html style.css app.js \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
 
           echo "✅ Files deployed"
 
-      - name: Verify deployment
-        shell: bash
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.ssh
-
-          printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
-
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            "$DEPLOY_USER@$DEPLOY_HOST" "ls -la '$DEPLOY_PATH'"
-
-          echo "✅ Deployment verified"
