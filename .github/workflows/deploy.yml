@@ -7,17 +7,40 @@ on:
 jobs:
 
   deploy-dev:
-    if: github.ref_name == 'dev'
+if: github.ref_name == 'dev'
     runs-on: ubuntu-latest
     environment: development
 
     steps:
       - uses: actions/checkout@v4
-      - name: Show vars
+
+      - name: Replace placeholders
         run: |
-          echo "HOST=${{ vars.DEPLOY_HOST }}"
-          echo "USER=${{ vars.DEPLOY_USER }}"
-          echo "PATH=${{ vars.DEPLOY_PATH }}"
+          sed -i "s|__SITE_TITLE__|${{ vars.SITE_TITLE }}|g" index.html
+          sed -i "s|__SITE_COLOR__|${{ vars.SITE_COLOR }}|g" style.css
+
+      - name: Deploy to EC2
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          set -euxo pipefail
+
+          mkdir -p ~/.ssh
+          printf '%s' "$SSH_PRIVATE_KEY" > ~/.ssh/key.pem
+          chmod 600 ~/.ssh/key.pem
+
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/key.pem $DEPLOY_USER@$DEPLOY_HOST "mkdir -p $DEPLOY_PATH"
+
+          scp -i ~/.ssh/key.pem index.html style.css app.js \
+            $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/
+
+          echo "DEPLOY SUCCESS"
+
 
   deploy-staging:
     if: github.ref_name == 'staging'
