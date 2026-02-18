@@ -33,6 +33,7 @@ jobs:
       - name: Deploy to EC2 via SSH
         shell: bash
         env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
@@ -40,14 +41,14 @@ jobs:
           set -euo pipefail
           mkdir -p ~/.ssh
 
-cat > ~/.ssh/deploy_key <<'EOF'
-${{ secrets.SSH_PRIVATE_KEY }}
-EOF
-
-          sed -i 's/\r$//' ~/.ssh/deploy_key
+          # Write key safely (preserves newlines)
+          printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+          # Host key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
+          # Deploy files
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             index.html style.css app.js \
             "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
@@ -57,6 +58,7 @@ EOF
       - name: Verify deployment
         shell: bash
         env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
@@ -64,11 +66,7 @@ EOF
           set -euo pipefail
           mkdir -p ~/.ssh
 
-cat > ~/.ssh/deploy_key <<'EOF'
-${{ secrets.SSH_PRIVATE_KEY }}
-EOF
-
-          sed -i 's/\r$//' ~/.ssh/deploy_key
+          printf '%s' "$SSH_PRIVATE_KEY" | sed 's/\r$//' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
@@ -76,4 +74,3 @@ EOF
             "$DEPLOY_USER@$DEPLOY_HOST" "ls -la '$DEPLOY_PATH'"
 
           echo "✅ Deployment verified"
-
